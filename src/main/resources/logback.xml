@@ -5,7 +5,12 @@
         </encoder>
     </appender>
     <logger name="io.netty" level="warn"/>
+
     <root level="debug">
         <appender-ref ref="STDOUT"/>
     </root>
+
+    <logger name="io.vertx.ext.mongo" level="ERROR"/>
+    <logger name="org.mongodb.driver" level="ERROR" />
+    <logger name="com.mongodb" level="ERROR" />
 </configuration>
