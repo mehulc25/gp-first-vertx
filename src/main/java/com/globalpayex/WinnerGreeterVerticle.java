@@ -28,6 +28,10 @@ public class WinnerGreeterVerticle extends AbstractVerticle {
         vertx.setTimer(4000, id -> logger.info("is"));
         vertx.setTimer(9000, this::handleWinner);
 
+        // deliberate error in start up
+        /* String str = null;
+        String us = str.toUpperCase(); */
+
         logger.info("timers initialized in the verticle");
     }
 
