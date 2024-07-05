@@ -1,7 +1,9 @@
 package com.globalpayex.services;
 
 import com.globalpayex.dao.StudentDao;
+import com.globalpayex.exceptions.NotFoundException;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 
 public class StudentService {
@@ -23,5 +25,19 @@ public class StudentService {
 
         Future<String> future = this.studentDao.insert(requestData);
         return future;
+    }
+
+    public Future<JsonObject> getStudentById(String studentId) {
+        Promise<JsonObject> promise = Promise.promise();
+        this.studentDao.findById(studentId)
+                .onSuccess(studentObj -> {
+                    if (studentObj == null) {
+                        promise.fail(new NotFoundException("student with id not found"));
+                    } else {
+                        promise.complete(studentObj);
+                    }
+                })
+                .onFailure(exception -> promise.fail(exception));
+        return promise.future();
     }
 }

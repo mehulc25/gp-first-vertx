@@ -17,4 +17,11 @@ public class StudentDao {
         Future<String> future = mongoClient.insert("students", data);
         return future;
     }
+
+    public Future<JsonObject> findById(String studentId) {
+        JsonObject query = new JsonObject()
+                .put("_id", new JsonObject().put("$oid", studentId));
+        Future<JsonObject> future = mongoClient.findOne("students", query, null);
+        return future;
+    }
 }

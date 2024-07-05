@@ -1,6 +1,7 @@
 package com.globalpayex.routes;
 
 import com.globalpayex.dao.StudentDao;
+import com.globalpayex.exceptions.NotFoundException;
 import com.globalpayex.services.StudentService;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -62,32 +63,28 @@ public class StudentsRoute {
     }
 
     private static void getStudent(RoutingContext routingContext) {
-        String studentId = routingContext.pathParam("studentId");
-        JsonObject query = new JsonObject()
-                .put("_id", new JsonObject().put("$oid", studentId));
-        Future<JsonObject> future = mongoClient.findOne("students", query, null);
-        future.onSuccess(studentObject -> {
-            if (studentObject == null) {
-                routingContext
-                        .response()
-                        .setStatusCode(404)
-                        .end("student not found");
-            }
-           else {
-                JsonObject responseJson = mapDbToResponseJson(studentObject);
-                routingContext
-                        .response()
-                        .putHeader("Content-Type", "application/json")
-                        .end(responseJson.encode());
-            }
-        });
-        future.onFailure(exception -> {
-            logger.error("error in fetching student {}", exception.getMessage());
-            routingContext
-                    .response()
-                    .setStatusCode(500)
-                    .end("Server error");
-        });
+        studentService.getStudentById(routingContext.pathParam("studentId"))
+                .onSuccess(studentObject -> {
+                    JsonObject responseJson = mapDbToResponseJson(studentObject);
+                    routingContext
+                            .response()
+                            .putHeader("Content-Type", "application/json")
+                            .end(responseJson.encode());
+                })
+                .onFailure(exception -> {
+                    if (exception instanceof NotFoundException) {
+                        routingContext
+                                .response()
+                                .setStatusCode(404)
+                                .end("student not found");
+                    } else {
+                        logger.error("error in fetching student {}", exception.getMessage());
+                        routingContext
+                                .response()
+                                .setStatusCode(500)
+                                .end("Server error");
+                    }
+                });
     }
 
     private static void getAllStudents(RoutingContext routingContext) {
