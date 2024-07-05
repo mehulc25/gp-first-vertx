@@ -1,5 +1,7 @@
 package com.globalpayex.routes;
 
+import com.globalpayex.dao.StudentDao;
+import com.globalpayex.services.StudentService;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
@@ -19,8 +21,11 @@ public class StudentsRoute {
 
     private static MongoClient mongoClient;
 
+    private static StudentService studentService;
+
     public static Router init(Router router, Vertx vertx, JsonObject config) {
         mongoClient = MongoClient.createShared(vertx, config);
+        studentService = new StudentService(new StudentDao(vertx, config));
 
         router.get("/students").handler(StudentsRoute::getAllStudents);
         router.get("/students/:studentId").handler(StudentsRoute::getStudent);
@@ -31,20 +36,29 @@ public class StudentsRoute {
 
     private static void createNewStudent(RoutingContext routingContext, Vertx vertx) {
         JsonObject requestJson = routingContext.body().asJsonObject();
-        Future<String> future = mongoClient.insert("students", requestJson);
-        future.onSuccess(studentId -> {
-            requestJson.put("_id", studentId);
-            vertx
-                    .eventBus()
-                    .publish("new.student",
-                            new JsonObject().put("_id", studentId));
+
+        try {
+            studentService.registerStudent(requestJson)
+                    .onSuccess(studentId -> {
+                        requestJson.put("_id", studentId);
+                        vertx
+                                .eventBus()
+                                .publish("new.student",
+                                        new JsonObject().put("_id", studentId));
+                        routingContext
+                                .response()
+                                .putHeader("Content-Type", "application/json")
+                                .setStatusCode(201)
+                                .end(requestJson.encode());
+                    })
+                    .onFailure(exception -> logger.error("error in saving student {}", exception.getMessage()));
+        } catch (Exception e) {
             routingContext
                     .response()
                     .putHeader("Content-Type", "application/json")
-                    .setStatusCode(201)
-                    .end(requestJson.encode());
-        });
-        future.onFailure(exception -> logger.error("error in saving student {}", exception.getMessage()));
+                    .setStatusCode(400)
+                    .end(e.getMessage());
+        }
     }
 
     private static void getStudent(RoutingContext routingContext) {
@@ -91,7 +105,10 @@ public class StudentsRoute {
             // query.put("address.country", countryQp.get(0));
         }
 
-        query.put("$or", orConditions);
+        if (!orConditions.isEmpty()) {
+            query.put("$or", orConditions);
+        }
+
         Future<List<JsonObject>> future = mongoClient
                 .find("students", query);
 
@@ -108,7 +125,7 @@ public class StudentsRoute {
                    .end(responseData.encode());
         });
         future.onFailure(exception -> {
-            logger.error("error in fetching students {}", exception.getCause());
+            logger.error("error in fetching students {}", exception.getMessage());
             routingContext
                     .response()
                     .setStatusCode(500)
